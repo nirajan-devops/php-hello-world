@@ -10,4 +10,4 @@ jobs:
     uses: nirajan-devops/ci-workflows/.github/workflows/php.yml@main
     with:
       php-version: '8.3'          # optional; overrides default
-      working-dir: './php-hello-world'  # path to the code to test
+      working-dir: '.'  # path to the code to test
