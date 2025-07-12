@@ -1,0 +1,13 @@
+name: PHP-Hello-World CI  (reuses template)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  ci:
+    uses: ./ci-workflows/.github/workflows/php.yml
+    with:
+      php-version: '8.3'          # optional; overrides default
+      working-dir: './php-hello-world'  # path to the code to test
