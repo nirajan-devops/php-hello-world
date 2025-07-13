@@ -36,7 +36,7 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "docker-compose.yml,nginx/default.conf,hello-php.tar.gz"
+          source: "docker-compose.yml,nginx/default.conf,hello-php.tar.gz,src"
           target: /home/${{ secrets.USERNAME }}/deploy   # keeps $HOME tidy
           overwrite: true
 
@@ -49,6 +49,15 @@ jobs:
           script: |
             set -e
             cd ~/deploy
+            # Verify files exist
+            echo "Contents of src:"
+            ls -lR src
+      
+            # Ensure PHP file exists
+            if [ ! -f src/index.php ]; then
+              echo "ERROR: index.php missing!"
+              exit 1
+            fi
 
             # 1. Ensure Docker + Compose v2
             if ! command -v docker >/dev/null; then
