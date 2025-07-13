@@ -34,9 +34,9 @@ jobs:
           key: ${{ env.SSH_KEY }}
           # copy compose file, nginx conf, image tar, and src
           source: |
-            docker-compose.yml
-            nginx/default.conf
-            $IMAGE_NAME.tar.gz
+            ./docker-compose.yml
+            ./nginx/default.conf
+            ./${{ env.IMAGE_NAME }}.tar.gz
           target: /home/${{ env.SSH_USER }}/app
           tar_dereference: false
 
