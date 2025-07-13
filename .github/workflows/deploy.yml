@@ -36,10 +36,7 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: |
-            docker-compose.yml
-            nginx/default.conf
-            hello-php.tar.gz
+          source: "docker-compose.yml,nginx/default.conf,hello-php.tar.gz"
           target: /home/${{ secrets.USERNAME }}/deploy   # keeps $HOME tidy
           overwrite: true
 
