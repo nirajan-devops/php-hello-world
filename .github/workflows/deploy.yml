@@ -1,4 +1,4 @@
-name: Build & Deploy (two‑container stack)
+name: Build & Deploy (two-container stack)
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build PHP image
-        run: docker build -t $IMAGE_NAME -f php.Dockerfile .
+        run: docker build -t $IMAGE_NAME -f Dockerfile .
 
       - name: Save & gzip image
         run: docker save $IMAGE_NAME | gzip > $IMAGE_NAME.tar.gz
