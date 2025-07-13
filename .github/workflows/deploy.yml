@@ -36,9 +36,10 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "docker-compose.yml,nginx/default.conf,hello-php.tar.gz,src"
+          source: "docker-compose.yml,nginx/default.conf,hello-php.tar.gz,src/"
           target: /home/${{ secrets.USERNAME }}/deploy   # keeps $HOME tidy
           overwrite: true
+          strip_components: 1  # remove leading path components
 
       - name: Deploy on EC2
         uses: appleboy/ssh-action@v1.0.0
