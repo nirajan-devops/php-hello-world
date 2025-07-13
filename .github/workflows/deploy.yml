@@ -23,6 +23,12 @@ jobs:
 
       - name: Save & gzip image
         run: docker save $IMAGE_NAME | gzip > $IMAGE_NAME.tar.gz
+        
+      - name: Debug - list workspace
+        run: |
+          echo "PWD: $(pwd)"
+          ls -R | head -n 100
+ 
 
       - name: Copy files to EC2
         uses: appleboy/scp-action@v0.1.4
