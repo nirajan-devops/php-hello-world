@@ -19,7 +19,7 @@ jobs:
 
       # 1. Build the PHP image with code
       - name: Build PHP image
-        run: docker build -f php.Dockerfile -t $IMAGE_NAME .
+        run: docker build -f Dockerfile -t $IMAGE_NAME .
 
       # 2. Save & gzip (5× smaller than raw tar)
       - name: Save image as tar.gz
