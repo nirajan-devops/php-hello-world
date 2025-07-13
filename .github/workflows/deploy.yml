@@ -58,4 +58,4 @@ jobs:
             sudo docker rm hello-php || true
 
             echo "Running new hello-php container..."
-            sudo docker run -d -p 8080:8080 --name hello-php hello-php
+            sudo docker run -d -p 8080:80 --name hello-php hello-php
