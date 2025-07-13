@@ -1,9 +1,8 @@
-name: Build & Deploy (two-container stack)
+name: Build & Deploy PHP Application
 
 on:
   push:
     branches: [ main ]
-
 
 jobs:
   deploy:
@@ -16,66 +15,60 @@ jobs:
       - name: Build PHP image
         run: docker build -t hello-php -f php.Dockerfile .
 
-      - name: Save & gzip image
+      - name: Save & compress Docker image
         run: docker save hello-php | gzip > hello-php.tar.gz
 
-      - name: Debug - list workspace
+      - name: Verify local files
         run: |
-          echo "PWD: $(pwd)"
-          ls -R | head -n 100
-      - name: Verify files exist
-        run: |
-          ls -l docker-compose.yml
-          ls -l nginx/default.conf
-          ls -l hello-php.tar.gz   
-      
-      
+          ls -R
+          [ -f docker-compose.yml ] || exit 1
+          [ -f nginx/default.conf ] || exit 1
+          [ -f src/index.php ] || exit 1
+          [ -f hello-php.tar.gz ] || exit 1
+
+      - name: Prepare directory structure on EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            mkdir -p ~/deploy/src
+            chmod -R 755 ~/deploy
+
       - name: Copy files to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "docker-compose.yml,nginx/default.conf,hello-php.tar.gz,src/index.php"
-          target: /home/${{ secrets.USERNAME }}/deploy   # keeps $HOME tidy
+          source: |
+            docker-compose.yml
+            nginx/default.conf
+            hello-php.tar.gz
+            src/index.php
+          target: /home/${{ secrets.USERNAME }}/deploy/
           overwrite: true
-          strip_components: 1  # remove leading path components
-      - name: Verify files on EC2
+
+      - name: Deploy application
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            # Verify files
             ls -la ~/deploy/
-            ls -la ~/deploy/src/
-            [ -f ~/deploy/src/index.php ] || exit 1   
-
-      - name: Deploy on EC2
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            set -e
-            cd ~/deploy
-            # Verify files exist
-            echo "Contents of src:"
-            ls -lR src
-      
-            # Ensure PHP file exists
-            if [ ! -f src/index.php ]; then
-              echo "ERROR: index.php missing!"
-              exit 1
-            fi
-
-            # 1. Ensure Docker + Compose v2
+            [ -f ~/deploy/src/index.php ] || { echo "index.php missing!"; exit 1; }
+            
+            # Docker setup
             if ! command -v docker >/dev/null; then
               sudo apt-get update -y
               sudo apt-get install -y docker.io
               sudo systemctl enable --now docker
+              sudo usermod -aG docker $USER
             fi
+            
             if ! docker compose version >/dev/null 2>&1; then
               sudo mkdir -p /usr/local/lib/docker/cli-plugins
               sudo curl -sSL \
@@ -83,12 +76,9 @@ jobs:
                 -o /usr/local/lib/docker/cli-plugins/docker-compose
               sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
             fi
-
-            # 2. Load the PHP image
-            gunzip -c hello-php.tar.gz | sudo docker load
-
-            # 3. Launch (or update) the stack
-            sudo docker compose up --build
-
-            # 4. Show status
+            
+            # Load and deploy
+            gunzip -c ~/deploy/hello-php.tar.gz | sudo docker load
+            cd ~/deploy
+            sudo docker compose up -d --build
             sudo docker compose ps
