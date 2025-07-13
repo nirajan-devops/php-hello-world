@@ -20,48 +20,53 @@ jobs:
 
       - name: Verify local files
         run: |
+          echo "Repository contents:"
           ls -R
+          echo "Checking required files:"
           [ -f docker-compose.yml ] || exit 1
           [ -f nginx/default.conf ] || exit 1
           [ -f src/index.php ] || exit 1
           [ -f hello-php.tar.gz ] || exit 1
 
-      - name: Prepare directory structure on EC2
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            mkdir -p ~/deploy/src
-            chmod -R 755 ~/deploy
-
-      - name: Copy files to EC2
+      - name: Copy configuration files to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: |
-            docker-compose.yml
-            nginx/default.conf
-            hello-php.tar.gz
-            src/index.php
+          source: "docker-compose.yml,nginx/default.conf,hello-php.tar.gz"
+          target: /home/${{ secrets.USERNAME }}/deploy
+          overwrite: true
+
+      - name: Copy PHP source code to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "src/"
           target: /home/${{ secrets.USERNAME }}/deploy/
           overwrite: true
 
-      - name: Deploy application
+      - name: Deploy application on EC2
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Verify files
+            # Set up directory permissions
+            sudo chown -R $USER:$USER /home/$USER/deploy
+            chmod -R 755 /home/$USER/deploy
+            
+            # Verify files on server
+            echo "Deployment directory contents:"
             ls -la ~/deploy/
+            echo "Source files:"
+            ls -la ~/deploy/src/
             [ -f ~/deploy/src/index.php ] || { echo "index.php missing!"; exit 1; }
             
-            # Docker setup
+            # Install Docker if missing
             if ! command -v docker >/dev/null; then
               sudo apt-get update -y
               sudo apt-get install -y docker.io
@@ -69,6 +74,7 @@ jobs:
               sudo usermod -aG docker $USER
             fi
             
+            # Install Docker Compose v2 if missing
             if ! docker compose version >/dev/null 2>&1; then
               sudo mkdir -p /usr/local/lib/docker/cli-plugins
               sudo curl -sSL \
@@ -77,8 +83,17 @@ jobs:
               sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
             fi
             
-            # Load and deploy
+            # Load Docker image
             gunzip -c ~/deploy/hello-php.tar.gz | sudo docker load
+            
+            # Start containers
             cd ~/deploy
             sudo docker compose up -d --build
+            
+            # Verify containers are running
+            echo "Container status:"
             sudo docker compose ps
+            echo "Nginx logs:"
+            sudo docker compose logs nginx
+            echo "PHP logs:"
+            sudo docker compose logs php
