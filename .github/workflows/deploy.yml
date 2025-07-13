@@ -23,7 +23,7 @@ jobs:
 
       - name: Save & gzip image
         run: docker save $IMAGE_NAME | gzip > $IMAGE_NAME.tar.gz
-        
+
       - name: Debug - list workspace
         run: |
           echo "PWD: $(pwd)"
@@ -37,9 +37,9 @@ jobs:
           username: ${{ env.SSH_USER }}
           key: ${{ env.SSH_KEY }}
           source: |
-            ./docker-compose.yml
-            ./nginx/default.conf
-            ./${{ env.IMAGE_NAME }}.tar.gz
+            docker-compose.yml
+            nginx/default.conf
+            hello-php.tar.gz
           target: /home/${{ env.SSH_USER }}/deploy   # keeps $HOME tidy
           overwrite: true
 
