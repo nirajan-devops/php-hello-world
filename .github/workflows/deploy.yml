@@ -1,72 +1,72 @@
-name: Build & Deploy (two-container stack)
+name: Duild & Deploy (two-container stack)
 
 on:
   push:
-    branches: [ main ]
-
-env:
-  IMAGE_NAME: php-app              # choose any tag you like
-  SSH_HOST: ${{ secrets.HOST }}
-  SSH_USER: ${{ secrets.USERNAME }}
-  SSH_KEY:  ${{ secrets.SSH_PRIVATE_KEY }}
+    branches: [main]
 
 jobs:
-  build-and-ship:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-      # 1. Build the PHP image with code
-      - name: Build PHP image
-        run: docker build -f Dockerfile -t $IMAGE_NAME .
+      - name: Build php image
+        run: docker build -t hello-php .
 
-      # 2. Save & gzip (5× smaller than raw tar)
-      - name: Save image as tar.gz
-        run: docker save $IMAGE_NAME | gzip > $IMAGE_NAME.tar.gz
+      - name: Save Docker image to tar
+        run: docker save hello-php -o hello-php.tar
 
-      # 3. Copy project & tar to EC2
-      - name: SCP project to EC2
+      - name: Copy image to EC2 via SCP
         uses: appleboy/scp-action@v0.1.4
         with:
-          host: ${{ env.SSH_HOST }}
-          username: ${{ env.SSH_USER }}
-          key: ${{ env.SSH_KEY }}
-          # copy compose file, nginx conf, image tar, and src
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: |
             ./docker-compose.yml
             ./nginx/default.conf
-            ./${{ env.IMAGE_NAME }}.tar.gz
-          target: /home/${{ env.SSH_USER }}/app
+            ./hello-php.tar
+          target: "/home/${{ secrets.USERNAME }}/"
           tar_dereference: false
+          strip_components: false
+          overwrite: true
+          rm: false
 
-      # 4. SSH: load image, install docker-compose, run stack
-      - name: Deploy on EC2
-        uses: appleboy/ssh-action@v1.0.0
+      - name: Install Docker and Deploy on EC2
+        uses: appleboy/ssh-action@master
         with:
-          host: ${{ env.SSH_HOST }}
-          username: ${{ env.SSH_USER }}
-          key: ${{ env.SSH_KEY }}
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            set -e
-            cd ~/app
-
-            # Install Docker & Compose v2 if missing
-            if ! command -v docker >/dev/null; then
-              sudo apt-get update -y
-              sudo apt-get install -y docker.io
-              sudo systemctl enable --now docker
+            # Install Docker if it's not present
+            if ! command -v docker &> /dev/null; then
+              echo "Installing Docker..."
+              sudo apt update
+              sudo apt install -y docker.io
+              sudo systemctl enable docker
+              sudo systemctl start docker
             fi
             if ! docker compose version >/dev/null 2>&1; then
               sudo curl -SL https://github.com/docker/compose/releases/download/v2.29.2/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
-              sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+              sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose  
             fi
 
             # Load the freshly‑built PHP image
-            gunzip -c $IMAGE_NAME.tar.gz | sudo docker load
+            cd /home/${{ secrets.USERNAME }}
+
+            echo "Loading Docker image..."
+            ls -lh hello-php.tar
+            sudo docker load -i hello-php.tar
 
             # Start (or update) the stack
             sudo docker compose pull nginx:1.27-alpine || true
             sudo docker compose up -d    # will recreate only changed services
 
             sudo docker compose ps
+
+           
+
+           
