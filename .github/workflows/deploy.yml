@@ -23,6 +23,11 @@ jobs:
         run: |
           echo "PWD: $(pwd)"
           ls -R | head -n 100
+      - name: Verify files exist
+        run: |
+          ls -l docker-compose.yml
+          ls -l nginx/default.conf
+          ls -l hello-php.tar.gz   
       
       
       - name: Copy files to EC2
