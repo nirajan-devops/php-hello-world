@@ -31,18 +31,28 @@ jobs:
       
       
       - name: Copy files to EC2
-        uses: appleboy/scp-action@v0.1.4
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "docker-compose.yml,nginx/default.conf,hello-php.tar.gz,src/"
+          source: "docker-compose.yml,nginx/default.conf,hello-php.tar.gz,src/index.php"
           target: /home/${{ secrets.USERNAME }}/deploy   # keeps $HOME tidy
           overwrite: true
           strip_components: 1  # remove leading path components
+      - name: Verify files on EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            ls -la ~/deploy/
+            ls -la ~/deploy/src/
+            [ -f ~/deploy/src/index.php ] || exit 1   
 
       - name: Deploy on EC2
-        uses: appleboy/ssh-action@v1.0.0
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
