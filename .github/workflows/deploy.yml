@@ -1,72 +1,71 @@
-name: Duild & Deploy (two-container stack)
+name: Build & Deploy (two‑container stack)
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
+
+env:
+  IMAGE_NAME: hello-php
+  SSH_HOST: ${{ secrets.HOST }}
+  SSH_USER: ${{ secrets.USERNAME }}
+  SSH_KEY:  ${{ secrets.SSH_PRIVATE_KEY }}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Build php image
-        run: docker build -t hello-php .
+      - name: Build PHP image
+        run: docker build -t $IMAGE_NAME -f php.Dockerfile .
 
-      - name: Save Docker image to tar
-        run: docker save hello-php -o hello-php.tar
+      - name: Save & gzip image
+        run: docker save $IMAGE_NAME | gzip > $IMAGE_NAME.tar.gz
 
-      - name: Copy image to EC2 via SCP
+      - name: Copy files to EC2
         uses: appleboy/scp-action@v0.1.4
         with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USER }}
+          key: ${{ env.SSH_KEY }}
           source: |
             ./docker-compose.yml
             ./nginx/default.conf
-            ./hello-php.tar
-          target: "/home/${{ secrets.USERNAME }}/"
-          tar_dereference: false
-          strip_components: false
+            ./${{ env.IMAGE_NAME }}.tar.gz
+          target: /home/${{ env.SSH_USER }}/deploy   # keeps $HOME tidy
           overwrite: true
-          rm: false
 
-      - name: Install Docker and Deploy on EC2
-        uses: appleboy/ssh-action@master
+      - name: Deploy on EC2
+        uses: appleboy/ssh-action@v1.0.0
         with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USER }}
+          key: ${{ env.SSH_KEY }}
           script: |
-            # Install Docker if it's not present
-            if ! command -v docker &> /dev/null; then
-              echo "Installing Docker..."
-              sudo apt update
-              sudo apt install -y docker.io
-              sudo systemctl enable docker
-              sudo systemctl start docker
+            set -e
+            cd ~/deploy
+
+            # 1. Ensure Docker + Compose v2
+            if ! command -v docker >/dev/null; then
+              sudo apt-get update -y
+              sudo apt-get install -y docker.io
+              sudo systemctl enable --now docker
             fi
             if ! docker compose version >/dev/null 2>&1; then
-              sudo curl -SL https://github.com/docker/compose/releases/download/v2.29.2/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
-              sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose  
+              sudo mkdir -p /usr/local/lib/docker/cli-plugins
+              sudo curl -sSL \
+                https://github.com/docker/compose/releases/download/v2.29.2/docker-compose-linux-x86_64 \
+                -o /usr/local/lib/docker/cli-plugins/docker-compose
+              sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
             fi
 
-            # Load the freshly‑built PHP image
-            cd /home/${{ secrets.USERNAME }}
+            # 2. Load the PHP image
+            gunzip -c $IMAGE_NAME.tar.gz | sudo docker load
 
-            echo "Loading Docker image..."
-            ls -lh hello-php.tar
-            sudo docker load -i hello-php.tar
+            # 3. Launch (or update) the stack
+            sudo docker compose up -d --remove-orphans
 
-            # Start (or update) the stack
-            sudo docker compose pull nginx:1.27-alpine || true
-            sudo docker compose up -d    # will recreate only changed services
-
+            # 4. Show status
             sudo docker compose ps
-
-           
-
-           
