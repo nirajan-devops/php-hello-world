@@ -2,9 +2,7 @@ version: "3.9"
 
 services:
   php:
-    build:
-      context: .
-      dockerfile: php.Dockerfile
+    image: hello-php
     container_name: hello-php
     restart: unless-stopped
 
