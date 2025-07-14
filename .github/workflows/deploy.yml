@@ -59,7 +59,7 @@ jobs:
             sudo chown -R $USER:$USER /home/$USER/deploy
             chmod -R 755 /home/$USER/deploy
             
-            # Verify files on server
+            ## Verify files on server
             echo "Deployment directory contents:"
             ls -la ~/deploy/
             echo "Source files:"
