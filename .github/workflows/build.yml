@@ -3,11 +3,23 @@ name: PHP-Hello-World CI  (reuses template)
 on:
   push:
     branches: [ main ]
-  pull_request:
 
 jobs:
-  ci:
-    uses: nirajan-devops/ci-workflows/.github/workflows/php.yml@main
+  deploy:
+    uses: nirajan-devops/ci-workflows/.github/workflows/cinew.yml@main
     with:
+      image-name: php-app
+      container-name: php-app
+      port: "3000"
+      container-port: "3000"
       php-version: '8.3'          # optional; overrides default
-      working-dir: '.'  # path to the code to test
+      working-dir: '.' 
+      
+    secrets:
+      HOST: ${{ secrets.HOST }}
+      USERNAME: ${{ secrets.USERNAME }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+      GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+     
