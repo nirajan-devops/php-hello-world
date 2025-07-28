@@ -12,7 +12,7 @@ jobs:
       container-name: php-app
       port: "3000"
       container-port: "3000"
-      working-dir: '.' 
+       
       
     secrets:
       HOST: ${{ secrets.HOST }}
