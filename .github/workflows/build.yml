@@ -12,7 +12,6 @@ jobs:
       container-name: php-app
       port: "3000"
       container-port: "3000"
-      php-version: '8.3'          # optional; overrides default
       working-dir: '.' 
       
     secrets:
